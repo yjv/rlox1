@@ -145,16 +145,10 @@ impl Parser {
             return false;
         }
 
-        match self.peek().token_type {
-            TokenType::Number(_) => match token_type {
-                TokenType::Number(_) => true,
-                _ => false
-            },
-            TokenType::String(_) => match token_type {
-                TokenType::String(_) => true,
-                _ => false
-            },
-            peeked_type => peeked_type == token_type
+        match (self.peek().token_type, token_type) {
+            (TokenType::Number(_), TokenType::Number(_)) => true,
+            (TokenType::String(_), TokenType::String(_)) => true,
+            (peeked_type, token_type) => peeked_type == token_type
         }
     }
 
