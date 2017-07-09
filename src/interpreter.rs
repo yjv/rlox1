@@ -2,10 +2,30 @@ use expr::{Literal, Binary, Grouping, Unary, Expr, Visitor};
 use scanner::{TokenType, Token};
 use std::error::Error;
 use std::fmt::{Display, Result as FmtResult, Formatter};
+use super::Lox;
 
 pub struct Interpreter;
 
 impl Interpreter {
+    pub fn interpret<'a>(&self, lox: &mut Lox,  expr: &'a Expr) {
+        match self.evaluate(expr) {
+            Ok(value) => println!("{}", self.stringify(value)),
+            Err(error) => lox.runtime_error(error)
+        }
+    }
+
+    fn stringify(&self, value: Literal) -> String {
+        match value {
+            Literal::Nil => "nil".to_string(),
+            Literal::Number(number) => {
+                let value = number.to_string();
+                value
+            },
+            Literal::String(value) => value,
+            Literal::Bool(value) => value.to_string()
+        }
+    }
+
     fn evaluate<'a>(&self, expr: &'a Expr) -> Result<Literal, RuntimeError> {
         expr.accept(self)
     }
@@ -78,7 +98,7 @@ impl Visitor<Result<Literal, RuntimeError>> for Interpreter {
 }
 
 #[derive(Debug)]
-pub struct RuntimeError(Token, &'static str);
+pub struct RuntimeError(pub Token, pub &'static str);
 
 impl Error for RuntimeError {
     fn description(&self) -> &str {

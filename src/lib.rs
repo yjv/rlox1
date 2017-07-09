@@ -9,12 +9,13 @@ pub mod parser;
 pub mod interpreter;
 
 pub struct Lox {
-    pub had_error: bool
+    pub had_error: bool,
+    pub had_runtime_error: bool
 }
 
 impl Lox {
     pub fn new() -> Self {
-        Lox { had_error: false }
+        Lox { had_error: false, had_runtime_error: false }
     }
 
     pub fn run_file(&mut self, path: &String) -> IoResult<()> {
@@ -25,6 +26,10 @@ impl Lox {
 
         if self.had_error {
             exit(65);
+        }
+
+        if self.had_runtime_error {
+            exit(70);
         }
 
         Ok(())
@@ -59,11 +64,19 @@ impl Lox {
             return;
         }
 
-        println!("{}", expr::AstPrinter.print(&expr.unwrap()));
+        let interpreter = interpreter::Interpreter;
+
+        interpreter.interpret(self, &expr.unwrap());
     }
 
     pub fn report(&mut self, line: i32, location: String, message: String) {
         println!("[line {} ] Error {} : {}", line, location, message);
         self.had_error = true;
+    }
+
+    pub fn runtime_error(&mut self, error: interpreter::RuntimeError) {
+        let interpreter::RuntimeError(token, message) = error;
+        println!("{}\n[line {}]", message, token.line);
+        self.had_runtime_error = true;
     }
 }
