@@ -40,15 +40,12 @@ impl Visitor<Result<Literal, RuntimeError>> for Interpreter {
             TokenType::Slash => Literal::Number(self.cast_to_float(left, &binary.operator)? / self.cast_to_float(right, &binary.operator)?),
             TokenType::Star => Literal::Number(self.cast_to_float(left, &binary.operator)? * self.cast_to_float(right, &binary.operator)?),
             TokenType::Plus => {
-                match left {
-                    Literal::String(mut left) => match right {
-                        Literal::String(right) => {
-                            left.push_str(&right[..]);
-                            Literal::String(left)
-                        },
-                        right => Literal::Number(self.cast_to_float(Literal::String(left), &binary.operator)? + self.cast_to_float(right, &binary.operator)?)
+                match (left, right) {
+                    (Literal::String(mut left), Literal::String(right)) => {
+                        left.push_str(&right[..]);
+                        Literal::String(left)
                     },
-                    left => Literal::Number(self.cast_to_float(left, &binary.operator)? + self.cast_to_float(right, &binary.operator)?)
+                    (left, right) => Literal::Number(self.cast_to_float(left, &binary.operator)? + self.cast_to_float(right, &binary.operator)?)
                 }
             },
             TokenType::Greater => Literal::Bool(self.cast_to_float(left, &binary.operator)? > self.cast_to_float(right, &binary.operator)?),
