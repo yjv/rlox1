@@ -1,30 +1,15 @@
-use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{Result as IoResult, stdout, stdin};
 use std::process::exit;
 
-
 pub mod scanner;
 pub mod expr;
 pub mod parser;
-
-pub static mut HAD_ERROR: bool = false;
-
-fn error(line: i32, message: String) {
-    report(line, "".to_string(), message);
-}
-
-fn report(line: i32, location: String, message: String) {
-    println!("[line {} ] Error {} : {}", line, location, message);
-    unsafe {
-        HAD_ERROR = true;
-    };
-}
-
+pub mod interpreter;
 
 pub struct Lox {
-    had_error: bool
+    pub had_error: bool
 }
 
 impl Lox {
@@ -59,20 +44,26 @@ impl Lox {
                 }
                 Err(error) => println!("error: {}", error),
             }
-            unsafe {
-                HAD_ERROR = false;
-            }
+            self.had_error = false;
         }
     }
 
     pub fn run(&mut self, source: &String) {
         let mut scanner = scanner::Scanner::new(source.clone());
-        let tokens = scanner.scan_tokens();
+        let tokens = scanner.scan_tokens(self);
 
         let mut parser = parser::Parser::new(tokens.clone());
-        let expr = parser.parse();
+        let expr = parser.parse(self);
 
-        println!("{}", expr::AstPrinter.print(&expr));
+        if self.had_error {
+            return;
+        }
+
+        println!("{}", expr::AstPrinter.print(&expr.unwrap()));
     }
 
+    pub fn report(&mut self, line: i32, location: String, message: String) {
+        println!("[line {} ] Error {} : {}", line, location, message);
+        self.had_error = true;
+    }
 }

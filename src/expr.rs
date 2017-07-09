@@ -10,7 +10,7 @@ pub struct Grouping {
     pub expression: Box<Expr>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     String(String),
     Number(f64),
@@ -24,21 +24,13 @@ pub struct Unary {
 }
 
 pub trait Visitor<T> {
-    fn visit_binary<'a>(&self, expr: &'a Binary) -> Option<T> {
-        None
-    }
+    fn visit_binary<'a>(&self, _: &'a Binary) -> T;
 
-    fn visit_grouping<'a>(&self, expr: &'a Grouping) -> Option<T> {
-        None
-    }
+    fn visit_grouping<'a>(&self, _: &'a Grouping) -> T;
 
-    fn visit_literal<'a>(&self, expr: &'a Literal) -> Option<T> {
-        None
-    }
+    fn visit_literal<'a>(&self, _: &'a Literal) -> T;
 
-    fn visit_unary<'a>(&self, expr: &'a Unary) -> Option<T> {
-        None
-    }
+    fn visit_unary<'a>(&self, _: &'a Unary) -> T;
 }
 
 pub enum Expr {
@@ -49,7 +41,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    fn accept<'a, T: Visitor<U> + 'a, U>(&self, visitor: &'a T) -> Option<U> {
+    pub fn accept<'a, T: Visitor<U> + 'a, U>(&self, visitor: &'a T) -> U {
         match *self {
             Expr::Binary(ref v) => visitor.visit_binary(v),
             Expr::Grouping(ref v) => visitor.visit_grouping(v),
@@ -87,7 +79,7 @@ pub struct AstPrinter;
 
 impl AstPrinter {
     pub fn print(&self, expr: &Expr) -> String {
-        expr.accept(self).unwrap()
+        expr.accept(self)
     }
 
     fn parenthesize<'a>(&self, name: &'a str, exprs: Vec<&Expr>) -> String {
@@ -97,7 +89,7 @@ impl AstPrinter {
         string.push_str(&name);
         for expr in exprs {
             string.push(' ');
-            string.push_str(&expr.accept::<AstPrinter, String>(self).unwrap());
+            string.push_str(&expr.accept::<AstPrinter, String>(self));
         }
 
         string.push(')');
@@ -107,19 +99,19 @@ impl AstPrinter {
 }
 
 impl Visitor<String> for AstPrinter {
-    fn visit_binary<'a>(&self, expr: &'a Binary) -> Option<String> {
-        Some(self.parenthesize(&format!("{}", expr.operator.lexeme), vec![&*expr.left, &*expr.right]))
+    fn visit_binary<'a>(&self, expr: &'a Binary) -> String {
+        self.parenthesize(&format!("{}", expr.operator.lexeme), vec![&*expr.left, &*expr.right])
     }
 
-    fn visit_grouping<'a>(&self, expr: &'a Grouping) -> Option<String> {
-        Some(self.parenthesize("group", vec![&*expr.expression]))
+    fn visit_grouping<'a>(&self, expr: &'a Grouping) -> String {
+        self.parenthesize("group", vec![&*expr.expression])
     }
 
-    fn visit_literal<'a>(&self, expr: &'a Literal) -> Option<String> {
-        Some(format!("{:?}", expr))
+    fn visit_literal<'a>(&self, expr: &'a Literal) -> String {
+        format!("{:?}", expr)
     }
 
-    fn visit_unary<'a>(&self, expr: &'a Unary) -> Option<String> {
-        Some(self.parenthesize(&expr.operator.lexeme, vec![&*expr.right]))
+    fn visit_unary<'a>(&self, expr: &'a Unary) -> String {
+        self.parenthesize(&expr.operator.lexeme, vec![&*expr.right])
     }
 }

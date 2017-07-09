@@ -1,4 +1,3 @@
-use super::error;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
@@ -87,11 +86,11 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
+    pub fn scan_tokens(&mut self, lox: &mut super::Lox) -> &Vec<Token> {
         while !self.is_at_end() {
             // We are at the beginning of the next lexeme.
             self.start = self.current;
-            self.scan_token();
+            self.scan_token(lox);
         }
 
         self.tokens.push(Token::new(TokenType::Eof, "".to_string(), self.line));
@@ -102,7 +101,7 @@ impl Scanner {
         self.current >= self.source.len()
     }
 
-    fn scan_token(&mut self) {
+    fn scan_token(&mut self, lox: &mut super::Lox) {
         match self.advance() {
             '(' => self.add_token(TokenType::LeftParen),
             ')' => self.add_token(TokenType::RightParen),
@@ -151,7 +150,7 @@ impl Scanner {
             '"' => self.string(),
             c if Self::is_digit(c) => self.number(),
             c if Self::is_alpha(c) => self.identifier(),
-            c => error(self.line, format!("Unexpected character {:?}", c))
+            c => lox.report(self.line, "".to_string(), format!("Unexpected character {:?}", c))
         };
     }
 

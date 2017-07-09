@@ -1,6 +1,5 @@
 use scanner::{TokenType, Token};
 use expr::*;
-use super::report;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -15,20 +14,20 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Expr {
-        self.expression()
+    pub fn parse(&mut self, lox: &mut super::Lox) -> Option<Expr> {
+        self.expression(lox).ok()
     }
 
-    fn expression(&mut self) -> Expr {
-        self.equality()
+    fn expression(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        self.equality(lox)
     }
 
-    fn equality(&mut self) -> Expr {
-        let mut expr = self.comparison();
+    fn equality(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let mut expr = self.comparison(lox)?;
 
         while self.match_token_types(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
             let operator = self.previous();
-            let right = self.comparison();
+            let right = self.comparison(lox)?;
             expr = Expr::Binary(Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -36,15 +35,15 @@ impl Parser {
             });
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn comparison(&mut self) -> Expr {
-        let mut expr = self.term();
+    fn comparison(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let mut expr = self.term(lox)?;
 
         while self.match_token_types(vec![TokenType::Greater,TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
             let operator = self.previous();
-            let right = self.term();
+            let right = self.term(lox)?;
             expr = Expr::Binary(Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -52,15 +51,15 @@ impl Parser {
             });
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn term(&mut self) -> Expr {
-        let mut expr = self.factor();
+    fn term(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let mut expr = self.factor(lox)?;
 
         while self.match_token_types(vec![TokenType::Minus, TokenType::Plus]) {
             let operator = self.previous();
-            let right = self.factor();
+            let right = self.factor(lox)?;
             expr = Expr::Binary(Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -68,15 +67,15 @@ impl Parser {
             });
         }
 
-        return expr;
+        return Ok(expr);
     }
 
-    fn factor(&mut self) -> Expr {
-        let mut expr = self.unary();
+    fn factor(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let mut expr = self.unary(lox)?;
 
         while self.match_token_types(vec![TokenType::Slash, TokenType::Star]) {
             let operator = self.previous();
-            let right = self.unary();
+            let right = self.unary(lox)?;
             expr = Expr::Binary(Binary {
                 left: Box::new(expr),
                 operator: operator,
@@ -84,49 +83,50 @@ impl Parser {
             });
         }
 
-        return expr;
+        return Ok(expr);
     }
 
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
         if self.match_token_types(vec![TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous();
-            let right = self.unary();
-            return Expr::Unary(Unary {
+            let right = self.unary(lox)?;
+            return Ok(Expr::Unary(Unary {
                 operator: operator,
                 right: Box::new(right)
-            });
+            }));
         }
 
-        return self.primary();
+        return Ok(self.primary(lox)?);
     }
-    fn primary(&mut self) -> Expr {
+
+    fn primary(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
         if self.match_token_types(vec![TokenType::False]) {
-            return Expr::Literal(Literal::Bool(false));
+            return Ok(Expr::Literal(Literal::Bool(false)));
         }
         if self.match_token_types(vec![TokenType::True]) {
-            return Expr::Literal(Literal::Bool(true));
+            return Ok(Expr::Literal(Literal::Bool(true)));
         }
         if self.match_token_types(vec![TokenType::Nil]) {
-            return Expr::Literal(Literal::Nil);
+            return Ok(Expr::Literal(Literal::Nil));
         }
 
         if self.match_token_types(vec![TokenType::Number(12.0), TokenType::String("".to_string())]) {
-            return Expr::Literal(match self.previous().token_type {
+            return Ok(Expr::Literal(match self.previous().token_type {
                 TokenType::Number(number) => Literal::Number(number),
                 TokenType::String(string) => Literal::String(string),
                 _ => panic!()
-            });
+            }));
         }
 
         if self.match_token_types(vec![TokenType::LeftParen]) {
-            let expr = self.expression();
-            self.consume(TokenType::RightParen, "Expect ')' after expression.".to_string());
-            return Expr::Grouping(Grouping {
+            let expr = self.expression(lox)?;
+            self.consume(lox, TokenType::RightParen, "Expect ')' after expression.".to_string())?;
+            return Ok(Expr::Grouping(Grouping {
                 expression: Box::new(expr)
-            });
+            }));
         }
 
-        self.error(self.peek(), "Expect expression".to_string())
+        self.error(lox, self.peek(), "Expect expression".to_string())
     }
 
     fn match_token_types(&mut self, token_types: Vec<TokenType>) -> bool {
@@ -195,20 +195,20 @@ impl Parser {
         }
     }
 
-    fn consume(&mut self, token_type: TokenType, message: String) -> Token {
+    fn consume(&mut self, lox: &mut super::Lox, token_type: TokenType, message: String) -> Result<Token, ()> {
         if self.check(token_type) {
-            return self.advance();
+            return Ok(self.advance());
         }
 
-        self.error(self.peek(), message)
+        self.error(lox, self.peek(), message)
     }
 
-    fn error(&self, token: Token, message: String) -> ! {
+    fn error<T>(&self, lox: &mut super::Lox, token: Token, message: String) -> Result<T, ()> {
         if token.token_type == TokenType::Eof {
-            report(token.line, " at end".to_string(), message);
+            lox.report(token.line, " at end".to_string(), message);
         } else {
-            report(token.line, format!(" at '{}'", token.lexeme), message);
+            lox.report(token.line, format!(" at '{}'", token.lexeme), message);
         }
-        panic!();
+        Err(())
     }
 }
