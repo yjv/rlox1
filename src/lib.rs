@@ -64,7 +64,7 @@ impl Lox {
             return;
         }
 
-        let interpreter = interpreter::Interpreter;
+        let mut interpreter = interpreter::Interpreter::new();
 
         interpreter.interpret(self, &statements);
     }

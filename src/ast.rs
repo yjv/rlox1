@@ -1,11 +1,13 @@
 use scanner;
 
+#[derive(Clone)]
 pub struct Binary {
     pub left: Box<Expr>,
     pub operator: scanner::Token,
     pub right: Box<Expr>
 }
 
+#[derive(Clone)]
 pub struct Grouping {
     pub expression: Box<Expr>
 }
@@ -18,11 +20,13 @@ pub enum Literal {
     Nil
 }
 
+#[derive(Clone)]
 pub struct Unary {
     pub operator: scanner::Token,
     pub right: Box<Expr>
 }
 
+#[derive(Clone)]
 pub struct Variable {
     pub name: scanner::Token
 }
@@ -39,6 +43,7 @@ pub trait ExprVisitor<T> {
     fn visit_variable<'a>(&self, _: &'a Variable) -> T;
 }
 
+#[derive(Clone)]
 pub enum Expr {
     Binary(Binary),
     Grouping(Grouping),
@@ -95,7 +100,7 @@ pub struct Var {
 }
 
 impl Stmt {
-    pub fn accept<'a, T: StmtVisitor<U> + 'a, U>(&self, visitor: &'a T) -> U {
+    pub fn accept<'a, T: StmtVisitor<U> + 'a, U>(&self, visitor: &'a mut T) -> U {
         match *self {
             Stmt::Expression(ref v) => visitor.visit_expr(v),
             Stmt::Print(ref v) => visitor.visit_print(v),
@@ -107,7 +112,7 @@ impl Stmt {
 pub trait StmtVisitor<T> {
     fn visit_expr<'a>(&self, _: &'a Expr) -> T;
     fn visit_print<'a>(&self, _: &'a Expr) -> T;
-    fn visit_var<'a>(&self, _: &'a Var) -> T;
+    fn visit_var<'a>(&mut self, _: &'a Var) -> T;
 }
 
 pub struct AstPrinter;
@@ -150,7 +155,7 @@ impl ExprVisitor<String> for AstPrinter {
         self.parenthesize(&expr.operator.lexeme, vec![&*expr.right])
     }
 
-    fn visit_variable<'a>(&self, _: &'a Variable) -> String {
-        unimplemented!()
+    fn visit_variable<'a>(&self, expr: &'a Variable) -> String {
+        format!("{}", expr.name.lexeme)
     }
 }

@@ -2,12 +2,21 @@ use ast::{Literal, Binary, Grouping, Unary, Expr, ExprVisitor, StmtVisitor, Stmt
 use scanner::{TokenType, Token};
 use std::error::Error;
 use std::fmt::{Display, Result as FmtResult, Formatter};
+use std::collections::HashMap;
 use super::Lox;
 
-pub struct Interpreter;
+pub struct Interpreter {
+    environment: Environment
+}
 
 impl Interpreter {
-    pub fn interpret<'a>(&self, lox: &mut Lox, statements: &'a Vec<Stmt>) {
+    pub fn new() -> Self {
+        Interpreter {
+            environment: Environment::new()
+        }
+    }
+
+    pub fn interpret<'a>(&mut self, lox: &mut Lox, statements: &'a Vec<Stmt>) {
         for statement in statements {
             match self.execute(statement) {
                 Ok(_) => (),
@@ -31,7 +40,7 @@ impl Interpreter {
         }
     }
 
-    fn execute<'a>(&self, stmt: &'a Stmt) -> Result<(), RuntimeError> {
+    fn execute<'a>(&mut self, stmt: &'a Stmt) -> Result<(), RuntimeError> {
         stmt.accept(self)
     }
 
@@ -50,7 +59,7 @@ impl Interpreter {
     fn cast_to_float<'a>(&self, literal: Literal, operator: &'a Token) -> Result<f64, RuntimeError> {
         match literal {
             Literal::Number(number) => Ok(number),
-            _ => Err(RuntimeError(operator.clone(), "Operand must be a numbers"))
+            _ => Err(RuntimeError(operator.clone(), "Operand must be a numbers".to_string()))
         }
     }
 
@@ -122,13 +131,20 @@ impl StmtVisitor<Result<(), RuntimeError>> for Interpreter {
         Ok(())
     }
 
-    fn visit_var<'a>(&self, _: &'a Var) -> Result<(), RuntimeError> {
-        unimplemented!()
+    fn visit_var<'a>(&mut self, stmt: &'a Var) -> Result<(), RuntimeError> {
+        let value = if stmt.initializer.is_some() {
+            self.evaluate(&stmt.initializer.clone().unwrap())?
+        } else {
+            Literal::Nil
+        };
+
+        self.environment.define(stmt.name.lexeme.clone(), value);
+        Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct RuntimeError(pub Token, pub &'static str);
+pub struct RuntimeError(pub Token, pub String);
 
 impl Error for RuntimeError {
     fn description(&self) -> &str {
@@ -139,5 +155,24 @@ impl Error for RuntimeError {
 impl Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "A runtime error occurred: {}", self.1)
+    }
+}
+
+pub struct Environment {
+    pub values: HashMap<String, Literal>
+}
+
+impl Environment {
+    fn new() -> Self {
+        Environment {
+            values: HashMap::new()
+        }
+    }
+    fn define(&mut self, name: String, value: Literal) {
+        self.values.insert(name, value);
+    }
+
+    fn get<'a>(&self, name: &'a Token) -> Result<&Literal, RuntimeError> {
+        self.values.get(&name.lexeme).ok_or(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
     }
 }
