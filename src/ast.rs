@@ -26,7 +26,7 @@ pub struct Unary {
     pub right: Box<Expr>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Variable {
     pub name: scanner::Token
 }

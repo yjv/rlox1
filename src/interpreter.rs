@@ -114,8 +114,8 @@ impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
         })
     }
 
-    fn visit_variable<'a>(&self, _: &'a Variable) -> Result<Literal, RuntimeError> {
-        unimplemented!()
+    fn visit_variable<'a>(&self, variable: &'a Variable) -> Result<Literal, RuntimeError> {
+        self.environment.get(&variable.name)
     }
 }
 
@@ -172,7 +172,7 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    fn get<'a>(&self, name: &'a Token) -> Result<&Literal, RuntimeError> {
-        self.values.get(&name.lexeme).ok_or(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
+    fn get<'a>(&self, name: &'a Token) -> Result<Literal, RuntimeError> {
+        self.values.get(&name.lexeme).cloned().ok_or(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
     }
 }

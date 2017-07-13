@@ -22,7 +22,8 @@ impl Lox {
         let mut file = File::open(path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        self.run(&contents);
+        let mut interpreter = interpreter::Interpreter::new();
+        self.run(&contents, &mut interpreter);
 
         if self.had_error {
             exit(65);
@@ -38,6 +39,7 @@ impl Lox {
     pub fn run_prompt(&mut self) {
         let mut input = String::new();
         let stdin = stdin();
+        let mut interpreter = interpreter::Interpreter::new();
 
         loop {
             print!("> ");
@@ -45,7 +47,7 @@ impl Lox {
             input.clear();
             match stdin.read_line(&mut input) {
                 Ok(_) => {
-                    self.run(&input);
+                    self.run(&input, &mut interpreter);
                 }
                 Err(error) => println!("error: {}", error),
             }
@@ -53,7 +55,7 @@ impl Lox {
         }
     }
 
-    pub fn run(&mut self, source: &String) {
+    pub fn run(&mut self, source: &String, interpreter: &mut interpreter::Interpreter) {
         let mut scanner = scanner::Scanner::new(source.clone());
         let tokens = scanner.scan_tokens(self);
 
@@ -63,8 +65,6 @@ impl Lox {
         if self.had_error {
             return;
         }
-
-        let mut interpreter = interpreter::Interpreter::new();
 
         interpreter.interpret(self, &statements);
     }
