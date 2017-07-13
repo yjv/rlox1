@@ -1,4 +1,4 @@
-use expr::{Literal, Binary, Grouping, Unary, Expr, Visitor};
+use ast::{Literal, Binary, Grouping, Unary, Expr, ExprVisitor, StmtVisitor, Stmt, Variable, Var};
 use scanner::{TokenType, Token};
 use std::error::Error;
 use std::fmt::{Display, Result as FmtResult, Formatter};
@@ -7,10 +7,15 @@ use super::Lox;
 pub struct Interpreter;
 
 impl Interpreter {
-    pub fn interpret<'a>(&self, lox: &mut Lox,  expr: &'a Expr) {
-        match self.evaluate(expr) {
-            Ok(value) => println!("{}", self.stringify(value)),
-            Err(error) => lox.runtime_error(error)
+    pub fn interpret<'a>(&self, lox: &mut Lox, statements: &'a Vec<Stmt>) {
+        for statement in statements {
+            match self.execute(statement) {
+                Ok(_) => (),
+                Err(error) => {
+                    lox.runtime_error(error);
+                    return;
+                }
+            }
         }
     }
 
@@ -24,6 +29,10 @@ impl Interpreter {
             Literal::String(value) => value,
             Literal::Bool(value) => value.to_string()
         }
+    }
+
+    fn execute<'a>(&self, stmt: &'a Stmt) -> Result<(), RuntimeError> {
+        stmt.accept(self)
     }
 
     fn evaluate<'a>(&self, expr: &'a Expr) -> Result<Literal, RuntimeError> {
@@ -50,7 +59,7 @@ impl Interpreter {
     }
 }
 
-impl Visitor<Result<Literal, RuntimeError>> for Interpreter {
+impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
     fn visit_binary<'a>(&self, binary: &'a Binary) -> Result<Literal, RuntimeError> {
         let left = self.evaluate(&*binary.left)?;
         let right = self.evaluate(&*binary.right)?;
@@ -94,6 +103,27 @@ impl Visitor<Result<Literal, RuntimeError>> for Interpreter {
             TokenType::Bang => Literal::Bool(self.is_truthy(right)),
             _ => unreachable!()
         })
+    }
+
+    fn visit_variable<'a>(&self, _: &'a Variable) -> Result<Literal, RuntimeError> {
+        unimplemented!()
+    }
+}
+
+impl StmtVisitor<Result<(), RuntimeError>> for Interpreter {
+    fn visit_expr<'a>(&self, expr: &'a Expr) -> Result<(), RuntimeError> {
+        self.evaluate(expr)?;
+        Ok(())
+    }
+
+    fn visit_print<'a>(&self, print: &'a Expr) -> Result<(), RuntimeError> {
+        let result = self.evaluate(print)?;
+        println!("{}", self.stringify(result));
+        Ok(())
+    }
+
+    fn visit_var<'a>(&self, _: &'a Var) -> Result<(), RuntimeError> {
+        unimplemented!()
     }
 }
 

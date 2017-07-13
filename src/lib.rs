@@ -4,7 +4,7 @@ use std::io::{Result as IoResult, stdout, stdin};
 use std::process::exit;
 
 pub mod scanner;
-pub mod expr;
+pub mod ast;
 pub mod parser;
 pub mod interpreter;
 
@@ -58,7 +58,7 @@ impl Lox {
         let tokens = scanner.scan_tokens(self);
 
         let mut parser = parser::Parser::new(tokens.clone());
-        let expr = parser.parse(self);
+        let statements = parser.parse(self);
 
         if self.had_error {
             return;
@@ -66,7 +66,7 @@ impl Lox {
 
         let interpreter = interpreter::Interpreter;
 
-        interpreter.interpret(self, &expr.unwrap());
+        interpreter.interpret(self, &statements);
     }
 
     pub fn report(&mut self, line: i32, location: String, message: String) {

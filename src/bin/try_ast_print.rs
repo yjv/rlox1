@@ -1,5 +1,5 @@
 extern crate lox1;
-use lox1::expr::*;
+use lox1::ast::*;
 use lox1::scanner::*;
 
 fn main() {

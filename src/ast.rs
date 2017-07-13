@@ -23,7 +23,11 @@ pub struct Unary {
     pub right: Box<Expr>
 }
 
-pub trait Visitor<T> {
+pub struct Variable {
+    pub name: scanner::Token
+}
+
+pub trait ExprVisitor<T> {
     fn visit_binary<'a>(&self, _: &'a Binary) -> T;
 
     fn visit_grouping<'a>(&self, _: &'a Grouping) -> T;
@@ -31,22 +35,26 @@ pub trait Visitor<T> {
     fn visit_literal<'a>(&self, _: &'a Literal) -> T;
 
     fn visit_unary<'a>(&self, _: &'a Unary) -> T;
+
+    fn visit_variable<'a>(&self, _: &'a Variable) -> T;
 }
 
 pub enum Expr {
     Binary(Binary),
     Grouping(Grouping),
     Literal(Literal),
-    Unary(Unary)
+    Unary(Unary),
+    Variable(Variable)
 }
 
 impl Expr {
-    pub fn accept<'a, T: Visitor<U> + 'a, U>(&self, visitor: &'a T) -> U {
+    pub fn accept<'a, T: ExprVisitor<U> + 'a, U>(&self, visitor: &'a T) -> U {
         match *self {
             Expr::Binary(ref v) => visitor.visit_binary(v),
             Expr::Grouping(ref v) => visitor.visit_grouping(v),
             Expr::Literal(ref v) => visitor.visit_literal(v),
-            Expr::Unary(ref v) => visitor.visit_unary(v)
+            Expr::Unary(ref v) => visitor.visit_unary(v),
+            Expr::Variable(ref v) => visitor.visit_variable(v)
         }
     }
 }
@@ -75,6 +83,33 @@ impl From<Unary> for Expr {
     }
 }
 
+pub enum Stmt {
+    Expression(Expr),
+    Print(Expr),
+    Var(Var)
+}
+
+pub struct Var {
+    pub name: scanner::Token,
+    pub initializer: Option<Expr>
+}
+
+impl Stmt {
+    pub fn accept<'a, T: StmtVisitor<U> + 'a, U>(&self, visitor: &'a T) -> U {
+        match *self {
+            Stmt::Expression(ref v) => visitor.visit_expr(v),
+            Stmt::Print(ref v) => visitor.visit_print(v),
+            Stmt::Var(ref v) => visitor.visit_var(v)
+        }
+    }
+}
+
+pub trait StmtVisitor<T> {
+    fn visit_expr<'a>(&self, _: &'a Expr) -> T;
+    fn visit_print<'a>(&self, _: &'a Expr) -> T;
+    fn visit_var<'a>(&self, _: &'a Var) -> T;
+}
+
 pub struct AstPrinter;
 
 impl AstPrinter {
@@ -98,7 +133,7 @@ impl AstPrinter {
     }
 }
 
-impl Visitor<String> for AstPrinter {
+impl ExprVisitor<String> for AstPrinter {
     fn visit_binary<'a>(&self, expr: &'a Binary) -> String {
         self.parenthesize(&format!("{}", expr.operator.lexeme), vec![&*expr.left, &*expr.right])
     }
@@ -113,5 +148,9 @@ impl Visitor<String> for AstPrinter {
 
     fn visit_unary<'a>(&self, expr: &'a Unary) -> String {
         self.parenthesize(&expr.operator.lexeme, vec![&*expr.right])
+    }
+
+    fn visit_variable<'a>(&self, _: &'a Variable) -> String {
+        unimplemented!()
     }
 }
