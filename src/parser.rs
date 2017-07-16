@@ -76,7 +76,26 @@ impl Parser {
     }
 
     fn expression(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
-        self.equality(lox)
+        self.assignment(lox)
+    }
+
+    fn assignment(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let expr = self.equality(lox)?;
+
+        if self.match_token_types(vec![TokenType::Equal]) {
+            let equals = self.previous();
+            let value = self.assignment(lox)?;
+
+            match expr {
+                Expr::Variable(v) => Ok(Expr::Assign(Assign {
+                    name: v.name,
+                    value: Box::new(value)
+                })),
+                _ => self.error(lox, equals, "Invalid assignment target.".to_string())
+            }
+        } else {
+            Ok(expr)
+        }
     }
 
     fn equality(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {

@@ -1,4 +1,4 @@
-use ast::{Literal, Binary, Grouping, Unary, Expr, ExprVisitor, StmtVisitor, Stmt, Variable, Var};
+use ast::{Literal, Binary, Grouping, Unary, Expr, ExprVisitor, StmtVisitor, Stmt, Variable, Var, Assign};
 use scanner::{TokenType, Token};
 use std::error::Error;
 use std::fmt::{Display, Result as FmtResult, Formatter};
@@ -44,7 +44,7 @@ impl Interpreter {
         stmt.accept(self)
     }
 
-    fn evaluate<'a>(&self, expr: &'a Expr) -> Result<Literal, RuntimeError> {
+    fn evaluate<'a>(&mut self, expr: &'a Expr) -> Result<Literal, RuntimeError> {
         expr.accept(self)
     }
 
@@ -69,7 +69,7 @@ impl Interpreter {
 }
 
 impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
-    fn visit_binary<'a>(&self, binary: &'a Binary) -> Result<Literal, RuntimeError> {
+    fn visit_binary<'a>(&mut self, binary: &'a Binary) -> Result<Literal, RuntimeError> {
         let left = self.evaluate(&*binary.left)?;
         let right = self.evaluate(&*binary.right)?;
 
@@ -96,15 +96,15 @@ impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
         })
     }
 
-    fn visit_grouping<'a>(&self, grouping: &'a Grouping) -> Result<Literal, RuntimeError> {
+    fn visit_grouping<'a>(&mut self, grouping: &'a Grouping) -> Result<Literal, RuntimeError> {
         self.evaluate(&*grouping.expression)
     }
 
-    fn visit_literal<'a>(&self, literal: &'a Literal) -> Result<Literal, RuntimeError> {
+    fn visit_literal<'a>(&mut self, literal: &'a Literal) -> Result<Literal, RuntimeError> {
         Ok(literal.clone())
     }
 
-    fn visit_unary<'a>(&self, unary: &'a Unary) -> Result<Literal, RuntimeError> {
+    fn visit_unary<'a>(&mut self, unary: &'a Unary) -> Result<Literal, RuntimeError> {
         let right = self.evaluate(&*unary.right)?;
 
         Ok(match unary.operator.token_type {
@@ -114,18 +114,25 @@ impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
         })
     }
 
-    fn visit_variable<'a>(&self, variable: &'a Variable) -> Result<Literal, RuntimeError> {
+    fn visit_variable<'a>(&mut self, variable: &'a Variable) -> Result<Literal, RuntimeError> {
         self.environment.get(&variable.name)
+    }
+
+    fn visit_assign<'a>(&mut self, assign: &'a Assign) -> Result<Literal, RuntimeError> {
+        let value = self.evaluate(&*assign.value)?;
+
+        self.environment.assign(&assign.name, value.clone())?;
+        Ok(value)
     }
 }
 
 impl StmtVisitor<Result<(), RuntimeError>> for Interpreter {
-    fn visit_expr<'a>(&self, expr: &'a Expr) -> Result<(), RuntimeError> {
+    fn visit_expr<'a>(&mut self, expr: &'a Expr) -> Result<(), RuntimeError> {
         self.evaluate(expr)?;
         Ok(())
     }
 
-    fn visit_print<'a>(&self, print: &'a Expr) -> Result<(), RuntimeError> {
+    fn visit_print<'a>(&mut self, print: &'a Expr) -> Result<(), RuntimeError> {
         let result = self.evaluate(print)?;
         println!("{}", self.stringify(result));
         Ok(())
@@ -174,5 +181,15 @@ impl Environment {
 
     fn get<'a>(&self, name: &'a Token) -> Result<Literal, RuntimeError> {
         self.values.get(&name.lexeme).cloned().ok_or(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
+    }
+
+    fn assign<'a>(&mut self, name: &'a Token, value: Literal) -> Result<(), RuntimeError> {
+        if self.values.contains_key(&name.lexeme) {
+            self.values.insert(name.lexeme.clone(), value);
+            Ok(())
+        } else {
+            Err(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
+        }
+
     }
 }

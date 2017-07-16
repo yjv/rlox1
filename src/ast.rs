@@ -31,16 +31,24 @@ pub struct Variable {
     pub name: scanner::Token
 }
 
+#[derive(Clone)]
+pub struct Assign {
+    pub name: scanner::Token,
+    pub value: Box<Expr>
+}
+
 pub trait ExprVisitor<T> {
-    fn visit_binary<'a>(&self, _: &'a Binary) -> T;
+    fn visit_binary<'a>(&mut self, _: &'a Binary) -> T;
 
-    fn visit_grouping<'a>(&self, _: &'a Grouping) -> T;
+    fn visit_grouping<'a>(&mut self, _: &'a Grouping) -> T;
 
-    fn visit_literal<'a>(&self, _: &'a Literal) -> T;
+    fn visit_literal<'a>(&mut self, _: &'a Literal) -> T;
 
-    fn visit_unary<'a>(&self, _: &'a Unary) -> T;
+    fn visit_unary<'a>(&mut self, _: &'a Unary) -> T;
 
-    fn visit_variable<'a>(&self, _: &'a Variable) -> T;
+    fn visit_variable<'a>(&mut self, _: &'a Variable) -> T;
+
+    fn visit_assign<'a>(&mut self, _: &'a Assign) -> T;
 }
 
 #[derive(Clone)]
@@ -49,17 +57,19 @@ pub enum Expr {
     Grouping(Grouping),
     Literal(Literal),
     Unary(Unary),
-    Variable(Variable)
+    Variable(Variable),
+    Assign(Assign)
 }
 
 impl Expr {
-    pub fn accept<'a, T: ExprVisitor<U> + 'a, U>(&self, visitor: &'a T) -> U {
+    pub fn accept<'a, T: ExprVisitor<U> + 'a, U>(&self, visitor: &'a mut T) -> U {
         match *self {
             Expr::Binary(ref v) => visitor.visit_binary(v),
             Expr::Grouping(ref v) => visitor.visit_grouping(v),
             Expr::Literal(ref v) => visitor.visit_literal(v),
             Expr::Unary(ref v) => visitor.visit_unary(v),
-            Expr::Variable(ref v) => visitor.visit_variable(v)
+            Expr::Variable(ref v) => visitor.visit_variable(v),
+            Expr::Assign(ref v) => visitor.visit_assign(v)
         }
     }
 }
@@ -110,19 +120,19 @@ impl Stmt {
 }
 
 pub trait StmtVisitor<T> {
-    fn visit_expr<'a>(&self, _: &'a Expr) -> T;
-    fn visit_print<'a>(&self, _: &'a Expr) -> T;
+    fn visit_expr<'a>(&mut self, _: &'a Expr) -> T;
+    fn visit_print<'a>(&mut self, _: &'a Expr) -> T;
     fn visit_var<'a>(&mut self, _: &'a Var) -> T;
 }
 
 pub struct AstPrinter;
 
 impl AstPrinter {
-    pub fn print(&self, expr: &Expr) -> String {
+    pub fn print(&mut self, expr: &Expr) -> String {
         expr.accept(self)
     }
 
-    fn parenthesize<'a>(&self, name: &'a str, exprs: Vec<&Expr>) -> String {
+    fn parenthesize<'a>(&mut self, name: &'a str, exprs: Vec<&Expr>) -> String {
         let mut string = String::new();
 
         string.push('(');
@@ -139,23 +149,27 @@ impl AstPrinter {
 }
 
 impl ExprVisitor<String> for AstPrinter {
-    fn visit_binary<'a>(&self, expr: &'a Binary) -> String {
+    fn visit_binary<'a>(&mut self, expr: &'a Binary) -> String {
         self.parenthesize(&format!("{}", expr.operator.lexeme), vec![&*expr.left, &*expr.right])
     }
 
-    fn visit_grouping<'a>(&self, expr: &'a Grouping) -> String {
+    fn visit_grouping<'a>(&mut self, expr: &'a Grouping) -> String {
         self.parenthesize("group", vec![&*expr.expression])
     }
 
-    fn visit_literal<'a>(&self, expr: &'a Literal) -> String {
+    fn visit_literal<'a>(&mut self, expr: &'a Literal) -> String {
         format!("{:?}", expr)
     }
 
-    fn visit_unary<'a>(&self, expr: &'a Unary) -> String {
+    fn visit_unary<'a>(&mut self, expr: &'a Unary) -> String {
         self.parenthesize(&expr.operator.lexeme, vec![&*expr.right])
     }
 
-    fn visit_variable<'a>(&self, expr: &'a Variable) -> String {
+    fn visit_variable<'a>(&mut self, expr: &'a Variable) -> String {
         format!("{}", expr.name.lexeme)
+    }
+
+    fn visit_assign<'a>(&mut self, expr: &'a Assign) -> String {
+        self.parenthesize(&expr.name.lexeme, vec![&*expr.value])
     }
 }
