@@ -1,4 +1,4 @@
-use ast::{Literal, Binary, Grouping, Unary, Expr, ExprVisitor, StmtVisitor, Stmt, Variable, Var, Assign};
+use ast::{Literal, Binary, Grouping, Unary, Expr, ExprVisitor, StmtVisitor, Stmt, Variable, Var, Assign, Block};
 use scanner::{TokenType, Token};
 use std::error::Error;
 use std::fmt::{Display, Result as FmtResult, Formatter};
@@ -42,6 +42,22 @@ impl Interpreter {
 
     fn execute<'a>(&mut self, stmt: &'a Stmt) -> Result<(), RuntimeError> {
         stmt.accept(self)
+    }
+
+    fn execute_block<'a>(&mut self, statements: &'a Vec<Stmt>) -> Result<(), RuntimeError> {
+        self.environment.push();
+        let mut result = Ok(());
+        for statement in statements {
+            result = self.execute(statement);
+
+            if result.is_err() {
+                break;
+            }
+        }
+
+        self.environment.pop();
+
+        result
     }
 
     fn evaluate<'a>(&mut self, expr: &'a Expr) -> Result<Literal, RuntimeError> {
@@ -148,6 +164,10 @@ impl StmtVisitor<Result<(), RuntimeError>> for Interpreter {
         self.environment.define(stmt.name.lexeme.clone(), value);
         Ok(())
     }
+
+    fn visit_block<'a>(&mut self, block: &'a Block) -> Result<(), RuntimeError> {
+        self.execute_block(&block.statements)
+    }
 }
 
 #[derive(Debug)]
@@ -166,30 +186,49 @@ impl Display for RuntimeError {
 }
 
 pub struct Environment {
-    pub values: HashMap<String, Literal>
+    values: Vec<HashMap<String, Literal>>
 }
 
 impl Environment {
     fn new() -> Self {
-        Environment {
-            values: HashMap::new()
-        }
+        let mut environment = Environment {
+            values: Vec::new()
+        };
+        environment.push();
+        environment
     }
+
     fn define(&mut self, name: String, value: Literal) {
-        self.values.insert(name, value);
+        self.values.last_mut().unwrap().insert(name, value);
     }
 
     fn get<'a>(&self, name: &'a Token) -> Result<Literal, RuntimeError> {
-        self.values.get(&name.lexeme).cloned().ok_or(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
+        for values in self.values.iter().rev() {
+            match values.get(&name.lexeme).cloned() {
+                Some(v) => return Ok(v),
+                None => ()
+            }
+        }
+
+        Err(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
     }
 
     fn assign<'a>(&mut self, name: &'a Token, value: Literal) -> Result<(), RuntimeError> {
-        if self.values.contains_key(&name.lexeme) {
-            self.values.insert(name.lexeme.clone(), value);
-            Ok(())
-        } else {
-            Err(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
+        for values in self.values.iter_mut().rev() {
+            if values.contains_key(&name.lexeme) {
+                values.insert(name.lexeme.clone(), value);
+                return Ok(())
+            }
         }
 
+        Err(RuntimeError(name.clone(), format!("Undefined variable '{}'.", name.lexeme)))
+    }
+
+    fn push(&mut self) {
+        self.values.push(HashMap::new());
+    }
+
+    fn pop(&mut self) {
+        self.values.pop();
     }
 }

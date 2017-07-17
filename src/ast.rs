@@ -101,7 +101,8 @@ impl From<Unary> for Expr {
 pub enum Stmt {
     Expression(Expr),
     Print(Expr),
-    Var(Var)
+    Var(Var),
+    Block(Block)
 }
 
 pub struct Var {
@@ -109,12 +110,17 @@ pub struct Var {
     pub initializer: Option<Expr>
 }
 
+pub struct Block {
+    pub statements: Vec<Stmt>
+}
+
 impl Stmt {
     pub fn accept<'a, T: StmtVisitor<U> + 'a, U>(&self, visitor: &'a mut T) -> U {
         match *self {
             Stmt::Expression(ref v) => visitor.visit_expr(v),
             Stmt::Print(ref v) => visitor.visit_print(v),
-            Stmt::Var(ref v) => visitor.visit_var(v)
+            Stmt::Var(ref v) => visitor.visit_var(v),
+            Stmt::Block(ref v) => visitor.visit_block(v)
         }
     }
 }
@@ -123,6 +129,7 @@ pub trait StmtVisitor<T> {
     fn visit_expr<'a>(&mut self, _: &'a Expr) -> T;
     fn visit_print<'a>(&mut self, _: &'a Expr) -> T;
     fn visit_var<'a>(&mut self, _: &'a Var) -> T;
+    fn visit_block<'a>(&mut self, _: &'a Block) -> T;
 }
 
 pub struct AstPrinter;

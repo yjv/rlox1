@@ -9,7 +9,7 @@ fn main() {
     if args.len() > 2 {
         println!("Usage: rlox1 [script]");
     } else if args.len() == 2 {
-        lox.run_file(&args[0]).unwrap();
+        lox.run_file(&args[1]).unwrap();
     } else {
         lox.run_prompt();
     }
