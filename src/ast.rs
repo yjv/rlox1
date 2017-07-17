@@ -101,9 +101,17 @@ impl From<Unary> for Expr {
 #[derive(Clone, Debug)]
 pub enum Stmt {
     Expression(Expr),
+    If(If),
     Print(Expr),
     Var(Var),
     Block(Block)
+}
+
+#[derive(Clone, Debug)]
+pub struct If {
+    pub condition: Expr,
+    pub then_branch: Box<Stmt>,
+    pub else_branch: Option<Box<Stmt>>
 }
 
 #[derive(Clone, Debug)]
@@ -123,7 +131,8 @@ impl Stmt {
             Stmt::Expression(ref v) => visitor.visit_expr(v),
             Stmt::Print(ref v) => visitor.visit_print(v),
             Stmt::Var(ref v) => visitor.visit_var(v),
-            Stmt::Block(ref v) => visitor.visit_block(v)
+            Stmt::Block(ref v) => visitor.visit_block(v),
+            Stmt::If(ref v) => visitor.visit_if(v)
         }
     }
 }
@@ -133,6 +142,7 @@ pub trait StmtVisitor<T> {
     fn visit_print<'a>(&mut self, _: &'a Expr) -> T;
     fn visit_var<'a>(&mut self, _: &'a Var) -> T;
     fn visit_block<'a>(&mut self, _: &'a Block) -> T;
+    fn visit_if<'a>(&mut self, _: &'a If) -> T;
 }
 
 pub struct AstPrinter;

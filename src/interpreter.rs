@@ -1,4 +1,4 @@
-use ast::{Literal, Binary, Grouping, Unary, Expr, ExprVisitor, StmtVisitor, Stmt, Variable, Var, Assign, Block};
+use ast::*;
 use scanner::{TokenType, Token};
 use std::error::Error;
 use std::fmt::{Display, Result as FmtResult, Formatter};
@@ -167,6 +167,17 @@ impl StmtVisitor<Result<(), RuntimeError>> for Interpreter {
 
     fn visit_block<'a>(&mut self, block: &'a Block) -> Result<(), RuntimeError> {
         self.execute_block(&block.statements)
+    }
+
+    fn visit_if<'a>(&mut self, if_statement: &'a If) -> Result<(), RuntimeError> {
+        let value = self.evaluate(&if_statement.condition)?;
+        if self.is_truthy(value) {
+            self.execute(&*if_statement.then_branch)
+        } else if let Some(ref else_branch) = if_statement.else_branch {
+            self.execute(else_branch)
+        } else {
+            Ok(())
+        }
     }
 }
 
