@@ -67,12 +67,13 @@ impl Lox {
         }
 
         if statements.len() == 1 {
-            statements = match statements.pop() {
+            statements = vec![match statements.pop() {
                 Some(ast::Stmt::Expression(ref expr)) => {
-                    vec![ast::Stmt::Print(expr.clone())]
+                    ast::Stmt::Print(expr.clone())
                 },
+                Some(other) => other,
                 _ => unreachable!()
-            };
+            }];
         }
 
         interpreter.interpret(self, &statements);

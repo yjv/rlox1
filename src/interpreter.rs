@@ -64,10 +64,10 @@ impl Interpreter {
         expr.accept(self)
     }
 
-    fn is_truthy(&self, literal: Literal) -> bool {
+    fn is_truthy<'a>(&self, literal: &'a Literal) -> bool {
         match literal {
-            Literal::Bool(bool) if !bool => false,
-            Literal::Nil => false,
+            &Literal::Bool(bool) => bool,
+            &Literal::Nil => false,
             _ => true
         }
     }
@@ -125,7 +125,7 @@ impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
 
         Ok(match unary.operator.token_type {
             TokenType::Minus => Literal::Number(-self.cast_to_float(right, &unary.operator)?),
-            TokenType::Bang => Literal::Bool(self.is_truthy(right)),
+            TokenType::Bang => Literal::Bool(self.is_truthy(&right)),
             _ => unreachable!()
         })
     }
@@ -139,6 +139,16 @@ impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
 
         self.environment.assign(&assign.name, value.clone())?;
         Ok(value)
+    }
+
+    fn visit_logical<'a>(&mut self, logical: &'a Logical) -> Result<Literal, RuntimeError> {
+        let left = self.evaluate(&*logical.left)?;
+
+        Ok(match logical.operator.token_type {
+            TokenType::Or if self.is_truthy(&left) => left,
+            TokenType::And if !self.is_truthy(&left) => left,
+            _ => self.evaluate(&*logical.right)?
+        })
     }
 }
 
@@ -171,7 +181,7 @@ impl StmtVisitor<Result<(), RuntimeError>> for Interpreter {
 
     fn visit_if<'a>(&mut self, if_statement: &'a If) -> Result<(), RuntimeError> {
         let value = self.evaluate(&if_statement.condition)?;
-        if self.is_truthy(value) {
+        if self.is_truthy(&value) {
             self.execute(&*if_statement.then_branch)
         } else if let Some(ref else_branch) = if_statement.else_branch {
             self.execute(else_branch)

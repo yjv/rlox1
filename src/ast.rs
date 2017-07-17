@@ -20,6 +20,13 @@ pub enum Literal {
     Nil
 }
 
+#[derive(Debug, Clone)]
+pub struct Logical {
+    pub left: Box<Expr>,
+    pub operator: scanner::Token,
+    pub right: Box<Expr>
+}
+
 #[derive(Clone, Debug)]
 pub struct Unary {
     pub operator: scanner::Token,
@@ -49,6 +56,8 @@ pub trait ExprVisitor<T> {
     fn visit_variable<'a>(&mut self, _: &'a Variable) -> T;
 
     fn visit_assign<'a>(&mut self, _: &'a Assign) -> T;
+
+    fn visit_logical<'a>(&mut self, _: &'a Logical) -> T;
 }
 
 #[derive(Clone, Debug)]
@@ -56,6 +65,7 @@ pub enum Expr {
     Binary(Binary),
     Grouping(Grouping),
     Literal(Literal),
+    Logical(Logical),
     Unary(Unary),
     Variable(Variable),
     Assign(Assign)
@@ -69,7 +79,8 @@ impl Expr {
             Expr::Literal(ref v) => visitor.visit_literal(v),
             Expr::Unary(ref v) => visitor.visit_unary(v),
             Expr::Variable(ref v) => visitor.visit_variable(v),
-            Expr::Assign(ref v) => visitor.visit_assign(v)
+            Expr::Assign(ref v) => visitor.visit_assign(v),
+            Expr::Logical(ref v) => visitor.visit_logical(v)
         }
     }
 }
@@ -191,5 +202,8 @@ impl ExprVisitor<String> for AstPrinter {
 
     fn visit_assign<'a>(&mut self, expr: &'a Assign) -> String {
         self.parenthesize(&expr.name.lexeme, vec![&*expr.value])
+    }
+    fn visit_logical<'a>(&mut self, expr: &'a Logical) -> String {
+        self.parenthesize(&format!("{}", expr.operator.lexeme), vec![&*expr.left, &*expr.right])
     }
 }

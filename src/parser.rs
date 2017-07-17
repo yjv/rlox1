@@ -120,7 +120,7 @@ impl Parser {
     }
 
     fn assignment(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
-        let expr = self.equality(lox)?;
+        let expr = self.or(lox)?;
 
         if self.match_token_types(vec![TokenType::Equal]) {
             let equals = self.previous();
@@ -136,6 +136,38 @@ impl Parser {
         } else {
             Ok(expr)
         }
+    }
+
+    fn or(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let mut expr = self.and(lox)?;
+
+        while self.match_token_types(vec![TokenType::Or]) {
+            let operator = self.previous();
+            let right = self.and(lox)?;
+            expr = Expr::Logical(Logical {
+                left: Box::new(expr),
+                operator: operator,
+                right: Box::new(right)
+            });
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let mut expr = self.equality(lox)?;
+
+        while self.match_token_types(vec![TokenType::And]) {
+            let operator = self.previous();
+            let right = self.equality(lox)?;
+            expr = Expr::Logical(Logical {
+                left: Box::new(expr),
+                operator: operator,
+                right: Box::new(right)
+            });
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
