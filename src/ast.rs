@@ -1,13 +1,13 @@
 use scanner;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Binary {
     pub left: Box<Expr>,
     pub operator: scanner::Token,
     pub right: Box<Expr>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Grouping {
     pub expression: Box<Expr>
 }
@@ -20,7 +20,7 @@ pub enum Literal {
     Nil
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Unary {
     pub operator: scanner::Token,
     pub right: Box<Expr>
@@ -31,7 +31,7 @@ pub struct Variable {
     pub name: scanner::Token
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Assign {
     pub name: scanner::Token,
     pub value: Box<Expr>
@@ -51,7 +51,7 @@ pub trait ExprVisitor<T> {
     fn visit_assign<'a>(&mut self, _: &'a Assign) -> T;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Expr {
     Binary(Binary),
     Grouping(Grouping),
@@ -98,6 +98,7 @@ impl From<Unary> for Expr {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum Stmt {
     Expression(Expr),
     Print(Expr),
@@ -105,11 +106,13 @@ pub enum Stmt {
     Block(Block)
 }
 
+#[derive(Clone, Debug)]
 pub struct Var {
     pub name: scanner::Token,
     pub initializer: Option<Expr>
 }
 
+#[derive(Clone, Debug)]
 pub struct Block {
     pub statements: Vec<Stmt>
 }

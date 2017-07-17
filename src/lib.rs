@@ -60,10 +60,19 @@ impl Lox {
         let tokens = scanner.scan_tokens(self);
 
         let mut parser = parser::Parser::new(tokens.clone());
-        let statements = parser.parse(self);
+        let mut statements = parser.parse(self);
 
         if self.had_error {
             return;
+        }
+
+        if statements.len() == 1 {
+            statements = match statements.pop() {
+                Some(ast::Stmt::Expression(ref expr)) => {
+                    vec![ast::Stmt::Print(expr.clone())]
+                },
+                _ => unreachable!()
+            };
         }
 
         interpreter.interpret(self, &statements);

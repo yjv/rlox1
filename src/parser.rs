@@ -86,7 +86,11 @@ impl Parser {
 
     fn expression_statement(&mut self, lox: &mut super::Lox) -> Result<Stmt, ()> {
         let expr = self.expression(lox)?;
-        self.consume(lox, TokenType::Semicolon, "Expect ';' after expression.".to_string())?;
+
+        if !self.is_at_end() {
+            self.consume(lox, TokenType::Semicolon, "Expect ';' after expression.".to_string())?;
+        }
+
         Ok(Stmt::Expression(expr))
     }
 
