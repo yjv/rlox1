@@ -189,6 +189,20 @@ impl StmtVisitor<Result<(), RuntimeError>> for Interpreter {
             Ok(())
         }
     }
+
+    fn visit_while<'a>(&mut self, while_statement: &'a While) -> Result<(), RuntimeError> {
+        loop {
+            let value = self.evaluate(&while_statement.condition)?;
+
+            if !self.is_truthy(&value) {
+                break;
+            }
+
+            self.execute(&while_statement.body)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]

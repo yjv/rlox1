@@ -56,15 +56,74 @@ impl Parser {
     }
 
     fn statement(&mut self, lox: &mut super::Lox) -> Result<Stmt, ()> {
-        if self.match_token_types(vec![TokenType::If]) {
+        if self.match_token_types(vec![TokenType::For]) {
+            self.for_statement(lox)
+        } else if self.match_token_types(vec![TokenType::If]) {
             self.if_statement(lox)
         } else if self.match_token_types(vec![TokenType::Print]) {
             self.print_statement(lox)
+        } else if self.match_token_types(vec![TokenType::While]) {
+            self.while_statement(lox)
         } else if self.match_token_types(vec![TokenType::LeftBrace]) {
             Ok(Stmt::Block(Block { statements: self.block(lox)? }))
         } else {
             self.expression_statement(lox)
         }
+    }
+
+    fn for_statement(&mut self, lox: &mut super::Lox) -> Result<Stmt, ()> {
+        self.consume(lox, TokenType::LeftParen, "Expect '(' after 'for'.".to_string())?;
+
+        let initializer = if self.match_token_types(vec![TokenType::Semicolon]) {
+            None
+        } else if self.match_token_types(vec![TokenType::Var]) {
+            Some(self.var_declaration(lox)?)
+        } else {
+            Some(self.expression_statement(lox)?)
+        };
+
+        let condition = if self.check(TokenType::Semicolon) {
+            Expr::Literal(Literal::Bool(true))
+        } else {
+            self.expression(lox)?
+        };
+
+        self.consume(lox, TokenType::Semicolon, "Expect ';' after loop condition.".to_string())?;
+
+        let increment = if self.check(TokenType::RightParen) {
+            None
+        } else {
+            Some(self.expression(lox)?)
+        };
+
+        self.consume(lox, TokenType::RightParen, "Expect ')' after for clauses.".to_string())?;
+
+        let mut body = self.statement(lox)?;
+
+        if let Some(increment) = increment {
+            body = Stmt::Block(Block {
+                statements: vec![
+                    body,
+                    Stmt::Expression(increment)
+                ]
+            });
+        }
+
+        body = Stmt::While(While {
+            condition: condition,
+            body: Box::new(body)
+        });
+
+        if let Some(initializer) = initializer {
+            body = Stmt::Block(Block {
+                statements: vec![
+                    initializer,
+                    body
+                ]
+            })
+        }
+
+        Ok(body)
     }
 
     fn if_statement(&mut self, lox: &mut super::Lox) -> Result<Stmt, ()> {
@@ -90,6 +149,18 @@ impl Parser {
         let value = self.expression(lox)?;
         self.consume(lox, TokenType::Semicolon, "Expect ';' after value.".to_string())?;
         Ok(Stmt::Print(value))
+    }
+
+    fn while_statement(&mut self, lox: &mut super::Lox) -> Result<Stmt, ()> {
+        self.consume(lox, TokenType::LeftParen, "Expect '(' after 'while'.".to_string())?;
+        let condition = self.expression(lox)?;
+        self.consume(lox, TokenType::RightParen, "Expect ')' after condition.".to_string())?;
+        let body = self.statement(lox)?;
+
+        Ok(Stmt::While(While {
+            condition: condition,
+            body: Box::new(body)
+        }))
     }
 
     fn block(&mut self, lox: &mut super::Lox) -> Result<Vec<Stmt>, ()> {

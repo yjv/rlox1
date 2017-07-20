@@ -115,6 +115,7 @@ pub enum Stmt {
     If(If),
     Print(Expr),
     Var(Var),
+    While(While),
     Block(Block)
 }
 
@@ -132,6 +133,12 @@ pub struct Var {
 }
 
 #[derive(Clone, Debug)]
+pub struct While {
+    pub condition: Expr,
+    pub body: Box<Stmt>
+}
+
+#[derive(Clone, Debug)]
 pub struct Block {
     pub statements: Vec<Stmt>
 }
@@ -143,7 +150,8 @@ impl Stmt {
             Stmt::Print(ref v) => visitor.visit_print(v),
             Stmt::Var(ref v) => visitor.visit_var(v),
             Stmt::Block(ref v) => visitor.visit_block(v),
-            Stmt::If(ref v) => visitor.visit_if(v)
+            Stmt::If(ref v) => visitor.visit_if(v),
+            Stmt::While(ref v) => visitor.visit_while(v)
         }
     }
 }
@@ -154,6 +162,7 @@ pub trait StmtVisitor<T> {
     fn visit_var<'a>(&mut self, _: &'a Var) -> T;
     fn visit_block<'a>(&mut self, _: &'a Block) -> T;
     fn visit_if<'a>(&mut self, _: &'a If) -> T;
+    fn visit_while<'a>(&mut self, _: &'a While) -> T;
 }
 
 pub struct AstPrinter;
