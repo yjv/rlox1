@@ -20,7 +20,7 @@ pub struct Grouping {
     pub expression: Box<Expr>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Literal {
     Callable(Rc<Callable>),
     String(String),
@@ -31,18 +31,12 @@ pub enum Literal {
 
 impl PartialEq for Literal {
     fn eq(&self, other: &Literal) -> bool {
-        self == other
-    }
-}
-
-impl Clone for Literal {
-    fn clone(&self) -> Self {
-        match *self {
-            Literal::Callable(ref callable) => Literal::Callable(callable.clone()),
-            Literal::String(ref string) => Literal::String(string.clone()),
-            Literal::Number(number) => Literal::Number(number),
-            Literal::Bool(bool) => Literal::Bool(bool),
-            Literal::Nil => Literal::Nil
+        match (self, other) {
+            (&Literal::String(ref string1), &Literal::String(ref string2)) => string1 == string2,
+            (&Literal::Number(ref number1), &Literal::Number(ref number2)) => number1 == number2,
+            (&Literal::Bool(ref bool1), &Literal::Bool(ref bool2)) => bool1 == bool2,
+            (&Literal::Nil, &Literal::Nil) => true,
+            _ => false
         }
     }
 }
