@@ -1,4 +1,5 @@
 use scanner;
+use std::rc::Rc;
 
 #[derive(Clone, Debug)]
 pub struct Binary {
@@ -8,16 +9,42 @@ pub struct Binary {
 }
 
 #[derive(Clone, Debug)]
+pub struct Call {
+    pub callee: Box<Expr>,
+    pub paren: scanner::Token,
+    pub arguments: Vec<Expr>
+}
+
+#[derive(Clone, Debug)]
 pub struct Grouping {
     pub expression: Box<Expr>
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub enum Literal {
+    Callable(Rc<Callable>),
     String(String),
     Number(f64),
     Bool(bool),
     Nil
+}
+
+impl PartialEq for Literal {
+    fn eq(&self, other: &Literal) -> bool {
+        self == other
+    }
+}
+
+impl Clone for Literal {
+    fn clone(&self) -> Self {
+        match *self {
+            Literal::Callable(ref callable) => Literal::Callable(callable.clone()),
+            Literal::String(ref string) => Literal::String(string.clone()),
+            Literal::Number(number) => Literal::Number(number),
+            Literal::Bool(bool) => Literal::Bool(bool),
+            Literal::Nil => Literal::Nil
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +74,8 @@ pub struct Assign {
 pub trait ExprVisitor<T> {
     fn visit_binary<'a>(&mut self, _: &'a Binary) -> T;
 
+    fn visit_call<'a>(&mut self, _: &'a Call) -> T;
+
     fn visit_grouping<'a>(&mut self, _: &'a Grouping) -> T;
 
     fn visit_literal<'a>(&mut self, _: &'a Literal) -> T;
@@ -63,6 +92,7 @@ pub trait ExprVisitor<T> {
 #[derive(Clone, Debug)]
 pub enum Expr {
     Binary(Binary),
+    Call(Call),
     Grouping(Grouping),
     Literal(Literal),
     Logical(Logical),
@@ -75,6 +105,7 @@ impl Expr {
     pub fn accept<'a, T: ExprVisitor<U> + 'a, U>(&self, visitor: &'a mut T) -> U {
         match *self {
             Expr::Binary(ref v) => visitor.visit_binary(v),
+            Expr::Call(ref v) => visitor.visit_call(v),
             Expr::Grouping(ref v) => visitor.visit_grouping(v),
             Expr::Literal(ref v) => visitor.visit_literal(v),
             Expr::Unary(ref v) => visitor.visit_unary(v),
@@ -84,30 +115,30 @@ impl Expr {
         }
     }
 }
-
-impl From<Binary> for Expr {
-    fn from(v: Binary) -> Self {
-        Expr::Binary(v)
-    }
-}
-
-impl From<Grouping> for Expr {
-    fn from(v: Grouping) -> Self {
-        Expr::Grouping(v)
-    }
-}
-
-impl From<Literal> for Expr {
-    fn from(v: Literal) -> Self {
-        Expr::Literal(v)
-    }
-}
-
-impl From<Unary> for Expr {
-    fn from(v: Unary) -> Self {
-        Expr::Unary(v)
-    }
-}
+//
+//impl From<Binary> for Expr {
+//    fn from(v: Binary) -> Self {
+//        Expr::Binary(v)
+//    }
+//}
+//
+//impl From<Grouping> for Expr {
+//    fn from(v: Grouping) -> Self {
+//        Expr::Grouping(v)
+//    }
+//}
+//
+//impl From<Literal> for Expr {
+//    fn from(v: Literal) -> Self {
+//        Expr::Literal(v)
+//    }
+//}
+//
+//impl From<Unary> for Expr {
+//    fn from(v: Unary) -> Self {
+//        Expr::Unary(v)
+//    }
+//}
 
 #[derive(Clone, Debug)]
 pub enum Stmt {
@@ -193,6 +224,10 @@ impl ExprVisitor<String> for AstPrinter {
         self.parenthesize(&format!("{}", expr.operator.lexeme), vec![&*expr.left, &*expr.right])
     }
 
+    fn visit_call<'a>(&mut self, _: &'a Call) -> String {
+        unimplemented!()
+    }
+
     fn visit_grouping<'a>(&mut self, expr: &'a Grouping) -> String {
         self.parenthesize("group", vec![&*expr.expression])
     }
@@ -212,7 +247,13 @@ impl ExprVisitor<String> for AstPrinter {
     fn visit_assign<'a>(&mut self, expr: &'a Assign) -> String {
         self.parenthesize(&expr.name.lexeme, vec![&*expr.value])
     }
+
     fn visit_logical<'a>(&mut self, expr: &'a Logical) -> String {
         self.parenthesize(&format!("{}", expr.operator.lexeme), vec![&*expr.left, &*expr.right])
     }
+}
+
+pub trait Callable: ::std::fmt::Debug {
+    fn call(&self, interpreter: &mut ::interpreter::Interpreter, arguments: Vec<Literal>) -> Result<Literal, ::interpreter::RuntimeError>;
+    fn arity(&self) -> usize;
 }

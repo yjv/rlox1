@@ -315,7 +315,42 @@ impl Parser {
             }));
         }
 
-        return Ok(self.primary(lox)?);
+        Ok(self.call(lox)?)
+    }
+
+    fn call(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {
+        let mut expr = self.primary(lox)?;
+
+        loop {
+            if self.match_token_types(vec![TokenType::LeftParen]) {
+                expr = self.finish_call(lox, expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, lox: &mut super::Lox, callee: Expr) -> Result<Expr, ()> {
+        let mut arguments = Vec::new();
+        if !self.check(TokenType::RightParen) {
+            while {
+                if arguments.len() >= 8 {
+                    self.error::<Expr>(lox, self.peek(), "Cannot have more than 8 arguments.".to_string()).unwrap_err();
+                }
+                arguments.push(self.expression(lox)?);
+                self.match_token_types(vec![TokenType::Comma])
+            } {};
+        }
+
+        let paren = self.consume(lox, TokenType::RightParen, "Expect ')' after arguments.".to_string())?;
+
+        return Ok(Expr::Call(Call {
+            callee: Box::new(callee),
+            paren: paren,
+            arguments: arguments
+        }));
     }
 
     fn primary(&mut self, lox: &mut super::Lox) -> Result<Expr, ()> {

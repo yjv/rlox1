@@ -4,6 +4,7 @@ use std::error::Error;
 use std::fmt::{Display, Result as FmtResult, Formatter};
 use std::collections::HashMap;
 use super::Lox;
+use std::rc::Rc;
 
 pub struct Interpreter {
     environment: Environment
@@ -11,9 +12,12 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter {
+        let mut interpreter = Interpreter {
             environment: Environment::new()
-        }
+        };
+
+        interpreter.environment.define("clock".to_string(), Literal::Callable(Rc::new(Clock)));
+        interpreter
     }
 
     pub fn interpret<'a>(&mut self, lox: &mut Lox, statements: &'a Vec<Stmt>) {
@@ -36,7 +40,8 @@ impl Interpreter {
                 value
             },
             Literal::String(value) => value,
-            Literal::Bool(value) => value.to_string()
+            Literal::Bool(value) => value.to_string(),
+            Literal::Callable(_) => panic!()
         }
     }
 
@@ -110,6 +115,31 @@ impl ExprVisitor<Result<Literal, RuntimeError>> for Interpreter {
             TokenType::EqualEqual => Literal::Bool(self.is_equal(left, right)),
             _ => unreachable!()
         })
+    }
+
+    fn visit_call<'a>(&mut self, expr: &'a Call) -> Result<Literal, RuntimeError> {
+        let callee = self.evaluate(&*expr.callee)?;
+
+        let mut arguments = Vec::new();
+
+        for argument in &expr.arguments {
+            arguments.push(self.evaluate(argument)?);
+        }
+
+        match callee {
+            Literal::Callable(ref callable) => {
+                if arguments.len() != callable.arity() {
+                    Err(RuntimeError(expr.paren.clone(), format!(
+                        "Expected {} arguments but got {}.",
+                        callable.arity(),
+                        arguments.len()
+                    )))
+                } else {
+                    Ok(callable.call(self, arguments)?)
+                }
+            },
+            _ => Err(RuntimeError(expr.paren.clone(), "Can only call functions and classes.".to_string()))
+        }
     }
 
     fn visit_grouping<'a>(&mut self, grouping: &'a Grouping) -> Result<Literal, RuntimeError> {
@@ -265,5 +295,19 @@ impl Environment {
 
     fn pop(&mut self) {
         self.values.pop();
+    }
+}
+
+#[derive(Debug)]
+pub struct Clock;
+
+impl Callable for Clock {
+    fn call(&self, _: &mut Interpreter, _: Vec<Literal>) -> Result<Literal, RuntimeError> {
+        let durection = ::std::time::SystemTime::now().duration_since(::std::time::UNIX_EPOCH).unwrap();
+        Ok(Literal::Number(durection.as_secs() as f64 * 1000.0 + durection.subsec_nanos() as f64 / 1000.0))
+    }
+
+    fn arity(&self) -> usize {
+        0
     }
 }
